@@ -3,12 +3,23 @@ import os
 import re
 from django.conf import settings
 
+import os
+from django.conf import settings
+import joblib
+
 def load_model():
     """
     Load the trained model and TfidfVectorizer from the model_saves folder.
     """
-    model_path = r"D:\Projects\LLM-AI-generated-Text-Detection\model_saves\logistic_regression_model.joblib"
-    vectorizer_path = r"D:\Projects\LLM-AI-generated-Text-Detection\model_saves\tfidf_vectorizer.joblib"
+    base_dir = settings.BASE_DIR
+    model_path = os.path.join(base_dir, 'model_saves', 'logistic_regression_model.joblib')
+    vectorizer_path = os.path.join(base_dir, 'model_saves', 'tfidf_vectorizer.joblib')
+    
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model file not found at {model_path}")
+    if not os.path.exists(vectorizer_path):
+        raise FileNotFoundError(f"Vectorizer file not found at {vectorizer_path}")
+    
     model = joblib.load(model_path)
     vectorizer = joblib.load(vectorizer_path)
     
