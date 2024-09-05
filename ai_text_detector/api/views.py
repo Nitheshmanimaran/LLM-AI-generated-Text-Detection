@@ -1,88 +1,59 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from .predictor import main
-from .models import Prediction
-from django.http import HttpResponse
-from django.utils.decorators import method_decorator
+import json
+import time
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-import logging
+from django.views.decorators.http import require_http_methods
+from django.shortcuts import render
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+import torch
+from .models import Prediction
+
+# Load the model and tokenizer
+model_path = 'model_saves/deberta'
+tokenizer = AutoTokenizer.from_pretrained(model_path)
+model = AutoModelForSequenceClassification.from_pretrained(model_path)
 
 def home(request):
-    return HttpResponse("Welcome to the AI Text Detector API. Use /api/predict/ to make predictions.")
+    return render(request, 'index.html')
 
-
-class PredictText(APIView):
-    def post(self, request):
-        text = request.data.get('text', '')
-        if not text:
-            return Response({'error': 'No text provided'}, status=400)
+@csrf_exempt
+@require_http_methods(["POST"])
+def predict(request):
+    try:
+        data = json.loads(request.body)
+        text = data.get('text', '')
         
-        result = main(text)
+        # Tokenize and predict
+        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
+        with torch.no_grad():
+            outputs = model(**inputs)
         
-        # Parse the result string to extract prediction and confidence
-        if "AI-generated" in result:
-            prediction = "AI-generated"
-        else:
-            prediction = "Human-written"
-        confidence = float(result.split("Confidence: ")[1].strip(")"))
+        # Get probabilities
+        probabilities = torch.nn.functional.softmax(outputs.logits, dim=-1)
+        ai_probability = probabilities[0][1].item()
+        is_ai_generated = ai_probability > 0.5
         
-        # Store the prediction in the database
-        Prediction.objects.create(
+        # Save the prediction to the database
+        prediction = Prediction.objects.create(
             input_text=text,
-            prediction=prediction,
-            confidence=confidence
+            prediction=is_ai_generated,
+            confidence=ai_probability
         )
+        print(f"Prediction saved with ID: {prediction.id}")  # Debug print
         
-        return Response({'result': result})
-    
-class GetPredictions(APIView):
-    def get(self, request):
-        predictions = Prediction.objects.all().order_by('-timestamp')[:10]  # Get last 10 predictions
-        data = [{
-            'input_text': p.input_text,
-            'prediction': p.prediction,
-            'confidence': p.confidence,
-            'timestamp': p.timestamp
-        } for p in predictions]
-        return Response(data)
-    
-logger = logging.getLogger(__name__)
+        # Simulate processing time (remove in production)
+        time.sleep(1)
+        
+        return JsonResponse({
+            'probability': ai_probability,
+            'is_ai_generated': is_ai_generated
+        })
+    except Exception as e:
+        print(f"Error in predict view: {str(e)}")  # Debug print
+        return JsonResponse({'error': str(e)}, status=400)
 
-@method_decorator(csrf_exempt, name='dispatch')
-class PredictText(APIView):
-    def post(self, request):
-        text = request.data.get('text', '')
-        if not text:
-            return Response({'error': 'No text provided'}, status=400)
-        
-        result = main(text)
-        
-        # Parse the result
-        if isinstance(result, str):
-            # If result is a string, parse it
-            if "AI-generated" in result:
-                prediction = "AI-generated"
-            else:
-                prediction = "Human-written"
-            confidence = float(result.split("Confidence: ")[1].strip(")"))
-        elif isinstance(result, dict):
-            # If result is already a dictionary, use it directly
-            prediction = result.get('prediction')
-            confidence = result.get('confidence')
-        else:
-            logger.error(f"Unexpected result format: {result}")
-            return Response({'error': 'Unexpected result format'}, status=500)
-        
-        # Save prediction to database
-        try:
-            saved_prediction = Prediction.objects.create(
-                input_text=text,
-                prediction=prediction,
-                confidence=confidence
-            )
-            logger.info(f"Saved prediction: {saved_prediction.id}")
-        except Exception as e:
-            logger.error(f"Error saving prediction: {str(e)}")
-            # You might want to return an error response here, or continue without saving
-        
-        return Response({'result': result})
+def about(request):
+    return render(request, 'about.html')
+
+def contact(request):
+    return render(request, 'contact.html')

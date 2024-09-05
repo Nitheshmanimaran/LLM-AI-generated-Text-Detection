@@ -2,83 +2,83 @@ import joblib
 import os
 import re
 from django.conf import settings
-
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import os
 from django.conf import settings
 import joblib
+import torch
+import logging
+
+logger = logging.getLogger(__name__)
 
 def load_model():
     """
-    Load the trained model and TfidfVectorizer from the model_saves folder.
+    Load the DeBERTa model and tokenizer from the model_saves/deberta folder.
     """
     base_dir = settings.BASE_DIR
-    model_path = os.path.join(base_dir, 'model_saves', 'logistic_regression_model.joblib')
-    vectorizer_path = os.path.join(base_dir, 'model_saves', 'tfidf_vectorizer.joblib')
+    model_path = settings.MODEL_PATH
     
     if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model file not found at {model_path}")
-    if not os.path.exists(vectorizer_path):
-        raise FileNotFoundError(f"Vectorizer file not found at {vectorizer_path}")
+        raise FileNotFoundError(f"Model directory not found at {model_path}")
     
-    model = joblib.load(model_path)
-    vectorizer = joblib.load(vectorizer_path)
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    model = AutoModelForSequenceClassification.from_pretrained(model_path)
     
-    return model, vectorizer
+    return model, tokenizer
 
-def preprocess_text(text):
+def predict_text(model, tokenizer, text):
     """
-    Preprocess the input text.
+    Predict if the input text is AI-generated using the DeBERTa model.
     """
-    # Convert to lowercase
-    text = text.lower()
-    # Remove special characters and digits
-    text = re.sub(r'[^a-zA-Z\s]', '', text)
-    # Remove extra whitespace
-    text = ' '.join(text.split())
-    return text
-
-def predict_text(model, vectorizer, text):
-    """
-    Make a prediction on the input text.
-    """
-    # Preprocess the text
-    preprocessed_text = preprocess_text(text)
-    # Vectorize the text
-    text_vectorized = vectorizer.transform([preprocessed_text])
+    # Tokenize the input text
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
+    
     # Make prediction
-    prediction = model.predict(text_vectorized)[0]
-    probability = model.predict_proba(text_vectorized)[0]
-    confidence = max(probability)
+    with torch.no_grad():
+        outputs = model(**inputs)
     
-    return prediction, confidence
+    # Get probabilities
+    probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+    
+    # Assuming binary classification (AI-generated or not)
+    ai_prob = probs[0][1].item()
+    
+    return ai_prob
 
 def main(user_input):
     """
     Main function to load the model and make predictions.
     """
-    # Load the model and vectorizer
-    model, vectorizer = load_model()
+    logger.info(f"Received input: {user_input}")
+    
+    # Load the model and tokenizer
+    model, tokenizer = load_model()
+    
+    logger.info("Model and tokenizer loaded successfully.")
     
     # Make prediction
-    prediction, confidence = predict_text(model, vectorizer, user_input)
+    ai_probability = predict_text(model, tokenizer, user_input)
+    
+    logger.info(f"AI Probability: {ai_probability}")
     
     # Prepare the result
-    if prediction == 1:
-        result = f"The text is likely AI-generated (Confidence: {confidence:.2f})"
-    else:
-        result = f"The text is likely Human-written (Confidence: {confidence:.2f})"
+    result = {
+        "probability": ai_probability,
+        "is_ai_generated": ai_probability > 0.5
+    }
+    
+    logger.info(f"Final Result: {result}")
     
     return result
 
-# This part is not needed for the API, but you can keep it for testing purposes
 if __name__ == "__main__":
     # Test the function
-    test_text = "This is a test sentence. Please predict if it's AI-generated or human-written."
+    test_text = "This is a sample text to test the AI detection model."
     print(main(test_text))
 
 #Usage:
 '''
 {
-    "text": "hi my naame is nithesh kumar. i am a freelancer."
+    "text": "hi my naame is MYNAMEr. i am a IAM."
 }
 '''

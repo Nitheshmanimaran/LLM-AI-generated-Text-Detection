@@ -1,0 +1,11 @@
+#loading {
+    display: none;
+}
+
+.progress {
+    height: 25px;
+}
+
+.progress-bar {
+    transition: width 0.5s ease-in-out;
+}

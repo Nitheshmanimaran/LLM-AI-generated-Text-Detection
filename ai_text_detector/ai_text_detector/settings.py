@@ -21,10 +21,9 @@ logger = logging.getLogger(__name__)
 db_url = os.getenv('DATABASE_URL')
 logger.info(f"Database URL: {db_url}")
 
-
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Add this to your settings.py
+MODEL_PATH = 'D:/Projects/LLM-AI-generated-Text-Detection/model_saves/deberta'
 
 
 # Quick-start development settings - unsuitable for production
@@ -35,7 +34,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'your-default-secret-key')
 
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['*'] 
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.onrender.com', 'ai-text-detector-latest.onrender.com']
 
 DEBUG = 'RENDER' not in os.environ
 
@@ -70,7 +69,7 @@ ROOT_URLCONF = 'ai_text_detector.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'frontend', 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -89,25 +88,24 @@ WSGI_APPLICATION = 'ai_text_detector.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+# Read DATABASE_URL from environment or use a default value
+database_url = os.environ.get('DATABASE_URL') or "postgresql://liv_savvy:HaomJIozTmgWwWUcI1Nj0obVqYpjJKWB@dpg-crcd3fl2ng1s739rbcng-a.oregon-postgres.render.com/ai_text_detector"
+
+print(f"Using DATABASE_URL: {database_url}")
+
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL', 'postgresql://liv_savvy:123@host.docker.internal:5432/ai_text_detector'),
-        conn_max_age=600
-    )
+    'default': dj_database_url.parse(database_url)
 }
-# If DATABASE_URL is not set, use a default SQLite database
-if 'default' not in DATABASES:
-    DATABASES['default'] = {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# Print the final DATABASES configuration
+print(f"DATABASES: {DATABASES}")
+
+
+
 STATIC_URL = '/static/'
-
-STATICFILES_DIRS = (
+STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
-)
+]
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
@@ -153,3 +151,6 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Add this line at the end of the file
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')

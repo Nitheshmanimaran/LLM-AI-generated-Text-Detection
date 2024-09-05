@@ -1,0 +1,20 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Text Detector</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+    <h1>AI Text Detector</h1>
+    <form id="text-form">
+        <textarea id="input-text" name="text" rows="4" cols="50" placeholder="Enter your text here"></textarea>
+        <button type="submit">Analyze</button>
+    </form>
+    <div id="loading" style="display: none;">Loading...</div>
+    <div id="result"></div>
+    <script src="{% static 'js/main.js' %}"></script>
+</body>
+</html>
