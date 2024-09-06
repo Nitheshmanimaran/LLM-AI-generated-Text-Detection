@@ -1,52 +1,51 @@
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('textForm');
+    const form = document.getElementById('text-form');
     const loadingDiv = document.getElementById('loading');
-    const progressBar = document.getElementById('progressBar');
     const resultDiv = document.getElementById('result');
 
     form.addEventListener('submit', function(e) {
         e.preventDefault();
-        const text = document.getElementById('inputText').value;
+        const text = document.getElementById('input-text').value;
         
-        // Show loading bar
+        // Show loading
         loadingDiv.style.display = 'block';
         resultDiv.innerHTML = '';
-        
-        // Simulate progress
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += 5;
-            if (progress > 90) clearInterval(interval);
-            progressBar.style.width = `${progress}%`;
-            progressBar.textContent = `${progress}%`;
-            progressBar.setAttribute('aria-valuenow', progress);
-        }, 100);
 
         fetch('/api/predict/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
             },
             body: JSON.stringify({text: text})
         })
         .then(response => response.json())
         .then(data => {
-            clearInterval(interval);
-            progressBar.style.width = '100%';
-            progressBar.textContent = '100%';
-            progressBar.setAttribute('aria-valuenow', 100);
-            
-            setTimeout(() => {
-                loadingDiv.style.display = 'none';
-                const resultText = `Probability of being AI-generated: ${(data.probability * 100).toFixed(2)}%<br>
-                                    Result: ${data.is_ai_generated ? 'AI-generated' : 'Human written'}`;
-                resultDiv.innerHTML = `<div class="alert alert-info">${resultText}</div>`;
-            }, 500);
+            loadingDiv.style.display = 'none';
+            resultDiv.innerHTML = `
+                <p>Probability of AI-generated text: ${(data.probability * 100).toFixed(2)}%</p>
+                <p>Verdict: ${data.is_ai_generated ? 'AI-generated' : 'Human-written'}</p>
+            `;
         })
         .catch(error => {
             console.error('Error:', error);
             loadingDiv.style.display = 'none';
-            resultDiv.innerHTML = '<div class="alert alert-danger">An error occurred. Please try again.</div>';
+            resultDiv.innerHTML = '<p>An error occurred. Please try again.</p>';
         });
     });
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
 });

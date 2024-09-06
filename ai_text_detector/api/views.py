@@ -7,6 +7,7 @@ from django.shortcuts import render
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 from .models import Prediction
+from .ml_model import ml_model  # This should now work correctly
 
 # Load the model and tokenizer
 model_path = 'model_saves/deberta'
@@ -23,33 +24,24 @@ def predict(request):
         data = json.loads(request.body)
         text = data.get('text', '')
         
-        # Tokenize and predict
-        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
-        with torch.no_grad():
-            outputs = model(**inputs)
-        
-        # Get probabilities
-        probabilities = torch.nn.functional.softmax(outputs.logits, dim=-1)
-        ai_probability = probabilities[0][1].item()
+        ai_probability = ml_model.predict(text)
         is_ai_generated = ai_probability > 0.5
         
         # Save the prediction to the database
-        prediction = Prediction.objects.create(
+        prediction_obj = Prediction.objects.create(
             input_text=text,
             prediction=is_ai_generated,
             confidence=ai_probability
         )
-        print(f"Prediction saved with ID: {prediction.id}")  # Debug print
-        
-        # Simulate processing time (remove in production)
-        time.sleep(1)
+        print(f"Prediction saved with ID: {prediction_obj.id}")
         
         return JsonResponse({
             'probability': ai_probability,
-            'is_ai_generated': is_ai_generated
+            'is_ai_generated': is_ai_generated,
+            'message': f"Probability of AI-generated text: {ai_probability:.4f}"
         })
     except Exception as e:
-        print(f"Error in predict view: {str(e)}")  # Debug print
+        print(f"Error in predict view: {str(e)}")
         return JsonResponse({'error': str(e)}, status=400)
 
 def about(request):

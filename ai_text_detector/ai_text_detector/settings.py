@@ -36,7 +36,6 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.onrender.com', 'ai-text-detector-latest.onrender.com']
 
-DEBUG = 'RENDER' not in os.environ
 
 # Application definition
 
